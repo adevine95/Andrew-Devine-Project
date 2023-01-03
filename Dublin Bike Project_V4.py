@@ -116,7 +116,7 @@ def clean_data(data_to_run):
     return data_to_run
 
 #%%
-
+'''Run function to clean the data'''
 data_2019_clean = clean_data(data_2019)
 data_2020_clean = clean_data(data_2020)
 data_2021_clean = clean_data(data_2021)
@@ -139,6 +139,7 @@ def create_Kmeans_clusters(data_to_run):
     df_kmeans = df_kmeans.dropna()
     return df_kmeans
 #%%
+'''Manipulate data for Kmeans clustering'''
 Kmeans_2019 = create_Kmeans_clusters(data_2019_clean)
 Kmeans_2020 = create_Kmeans_clusters(data_2020_clean)
 Kmeans_2021 = create_Kmeans_clusters(data_2021_clean)
@@ -164,12 +165,14 @@ def elbow_test(df_kmeans):
     plt.show()
     return plt.show()
 #%%
+'''Run the elbow test for Kmeans clustering'''
 elbow_test_2019 = elbow_test(Kmeans_2019)
 elbow_test_2020 = elbow_test(Kmeans_2020)
 elbow_test_2021 = elbow_test(Kmeans_2021)
 
 #%%
 #clustering algo
+'''Function to run Kmeans clustering'''
 def plot_clusters(df_clusters):
     X = np.array(df_clusters.drop(['station_id', 'latitude', 'longitude'], 1).astype(float))
     KM = KMeans(n_clusters=5) 
@@ -182,11 +185,13 @@ def plot_clusters(df_clusters):
 
     return locations
 #%%
+'''Run Kmeans Clustering'''
 plot_clusters_2019 = plot_clusters(Kmeans_2019)
 plot_clusters_2020 = plot_clusters(Kmeans_2020)
 plot_clusters_2021 = plot_clusters(Kmeans_2021)
 
 #%%
+'''Plot the clusters on a map of Dublin'''
 plots = [plot_clusters_2019,plot_clusters_2020,plot_clusters_2021]
 for i in plots:
     colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
