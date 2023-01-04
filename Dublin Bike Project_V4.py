@@ -10,6 +10,7 @@ import sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 #%%
+'''Bring in Dublin bike data'''
 data_2019_q1 = pd.read_csv('dublinbikes_20190101_20190401.csv')
 data_2019_q2 = pd.read_csv('dublinbikes_20190101_20190401.csv')
 data_2019_q3 = pd.read_csv('dublinbikes_20190101_20190401.csv')
@@ -150,7 +151,7 @@ def elbow_test(df_kmeans):
     '''Elbow Method - finding the optimal K '''
     distortions = []
     K = range(2,10)
-    X = np.array(df_kmeans.drop(['station_id', 'latitude', 'longitude'], 1).astype(float))
+    X = np.array(df_kmeans.drop(columns=['station_id', 'latitude', 'longitude'], axis=1).astype(float))
     for k in K:
         kmeans = KMeans(n_clusters=k)
         kmeans.fit(X)
@@ -174,7 +175,7 @@ elbow_test_2021 = elbow_test(Kmeans_2021)
 #clustering algo
 '''Function to run Kmeans clustering'''
 def plot_clusters(df_clusters):
-    X = np.array(df_clusters.drop(['station_id', 'latitude', 'longitude'], 1).astype(float))
+    X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
     KM = KMeans(n_clusters=5) 
     KM.fit(X)
     clusters = KM.predict(X)
