@@ -32,6 +32,7 @@ data_2021 = pd.concat([data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4],axis
 
 
 #%%
+'''Define function to clean raw data'''
 def clean_data(data_to_run):
     '''
     Clean column names and split out times
@@ -115,16 +116,9 @@ def clean_data(data_to_run):
     data_to_run = data_to_run.drop(['join_on'], axis = 1)
 
     return data_to_run
-
 #%%
-'''Run function to clean the data'''
-data_2019_clean = clean_data(data_2019)
-data_2020_clean = clean_data(data_2020)
-data_2021_clean = clean_data(data_2021)
-
-
-#%%
-def create_Kmeans_clusters(data_to_run):
+'''Define function to clean data for use in Kmeans testing'''
+def clean_Kmeans_data(data_to_run):
     '''Run Kmeans clustering'''
 
     #group data into clusters
@@ -140,13 +134,7 @@ def create_Kmeans_clusters(data_to_run):
     df_kmeans = df_kmeans.dropna()
     return df_kmeans
 #%%
-'''Manipulate data for Kmeans clustering'''
-Kmeans_2019 = create_Kmeans_clusters(data_2019_clean)
-Kmeans_2020 = create_Kmeans_clusters(data_2020_clean)
-Kmeans_2021 = create_Kmeans_clusters(data_2021_clean)
-
-
-#%%
+'''Define function to run teh Elbow test for Kmeans testing'''
 def elbow_test(df_kmeans):
     '''Elbow Method - finding the optimal K '''
     distortions = []
@@ -166,15 +154,9 @@ def elbow_test(df_kmeans):
     plt.show()
     return plt.show()
 #%%
-'''Run the elbow test for Kmeans clustering'''
-elbow_test_2019 = elbow_test(Kmeans_2019)
-elbow_test_2020 = elbow_test(Kmeans_2020)
-elbow_test_2021 = elbow_test(Kmeans_2021)
-
-#%%
-#clustering algo
-'''Function to run Kmeans clustering'''
-def plot_clusters(df_clusters):
+'''Define function to run Kmeans testing to find similar clusters'''
+def find_clusters(df_clusters):
+    '''Function to run Kmeans clustering'''
     X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
     KM = KMeans(n_clusters=5) 
     KM.fit(X)
@@ -182,19 +164,14 @@ def plot_clusters(df_clusters):
 
     locations = df_clusters
     locations['cluster'] = clusters
+    locations = locations.sort_values(['station_id'])
     locations = locations.reset_index()
 
     return locations
 #%%
-'''Run Kmeans Clustering'''
-plot_clusters_2019 = plot_clusters(Kmeans_2019)
-plot_clusters_2020 = plot_clusters(Kmeans_2020)
-plot_clusters_2021 = plot_clusters(Kmeans_2021)
-
-#%%
-'''Plot the clusters on a map of Dublin'''
-plots = [plot_clusters_2019,plot_clusters_2020,plot_clusters_2021]
-for i in plots:
+'''Define: Plot the clusters on a map of Dublin'''
+def plot_clusters(i):
+    
     colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
     bstreet = (53.35677,-6.26814)
     dublin_map = folium.Map(location = bstreet,
@@ -208,14 +185,63 @@ for i in plots:
             fill=True,
             fill_opacity=0.9
             ).add_to(dublin_map)
-    display(dublin_map)
-    
+    return display(dublin_map)
 #%%
-df_cluster_ids=df_kmeans[['station_id','cluster']].drop_duplicates()
-df_cluster_ids = df_cluster_ids.sort_values('station_id')
-df_cluster_ids=df_cluster_ids.reset_index()
-df_cluster_ids = df_cluster_ids[['station_id','cluster']]
-data_to_run_clusters = data_to_run.merge(df_cluster_ids,on='station_id',how='left')
+'''Run function to clean the data'''
+data_2019_clean = clean_data(data_2019)
+data_2020_clean = clean_data(data_2020)
+data_2021_clean = clean_data(data_2021)
+
+#%%
+'''Manipulate data for Kmeans clustering'''
+Kmeans_2019 = clean_Kmeans_data(data_2019_clean)
+Kmeans_2020 = clean_Kmeans_data(data_2020_clean)
+Kmeans_2021 = clean_Kmeans_data(data_2021_clean)
+
+#%%
+'''Run the elbow test for Kmeans clustering'''
+elbow_test_2019 = elbow_test(Kmeans_2019)
+elbow_test_2020 = elbow_test(Kmeans_2020)
+elbow_test_2021 = elbow_test(Kmeans_2021)
+
+#%%
+'''Run Kmeans Clustering'''
+clusters_2019 = find_clusters(Kmeans_2019)
+clusters_2020 = find_clusters(Kmeans_2020)
+clusters_2021 = find_clusters(Kmeans_2021)
+
+#%%
+'''Plot clusters on map for each year'''
+plots = [clusters_2019,clusters_2020,clusters_2021]
+for i in plots:
+    plot_clusters(i)
+
+#%%
+'''Run one quarter, 2021 Q4'''
+data_2021_q4_clean = clean_data(data_2021_q4)
+Kmeans_2021_q4 = clean_Kmeans_data(data_2021_q4_clean)
+elbow_test_2021_q4 = elbow_test(Kmeans_2021_q4)
+clusters_2021_q4 = find_clusters(Kmeans_2021_q4)
+plot_clusters_2021_q4 = plot_clusters(clusters_2021_q4)
+
+#%%
+'''Run multiple quarters, don't retain data'''
+data = [data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4]
+for i in data:
+    data_clean = clean_data(i)
+    Kmeans_data = clean_Kmeans_data(data_clean)
+    clusters_data = find_clusters(Kmeans_data)
+    plot_clusters_data = plot_clusters(clusters_data)
+
+
+
+
+#%%
+# df_cluster_ids=df_kmeans[['station_id','cluster']].drop_duplicates()
+# df_cluster_ids = df_cluster_ids.sort_values('station_id')
+# df_cluster_ids=df_cluster_ids.reset_index()
+# df_cluster_ids = df_cluster_ids[['station_id','cluster']]
+# data_to_run_clusters = data_to_run.merge(df_cluster_ids,on='station_id',how='left')
 
 
     
