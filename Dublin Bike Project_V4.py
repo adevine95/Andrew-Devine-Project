@@ -12,21 +12,21 @@ from sklearn.cluster import KMeans
 #%%
 '''Bring in Dublin bike data'''
 data_2019_q1 = pd.read_csv('dublinbikes_20190101_20190401.csv')
-data_2019_q2 = pd.read_csv('dublinbikes_20190101_20190401.csv')
-data_2019_q3 = pd.read_csv('dublinbikes_20190101_20190401.csv')
-data_2019_q4 = pd.read_csv('dublinbikes_20190101_20190401.csv')
+data_2019_q2 = pd.read_csv('dublinbikes_20190401_20190701.csv')
+data_2019_q3 = pd.read_csv('dublinbikes_20190701_20191001.csv')
+data_2019_q4 = pd.read_csv('dublinbikes_20191001_20200101.csv')
 data_2019 = pd.concat([data_2019_q1,data_2019_q2,data_2019_q3,data_2019_q4],axis=0)
 
 data_2020_q1 = pd.read_csv('dublinbikes_20200101_20200401.csv')
-data_2020_q2 = pd.read_csv('dublinbikes_20200101_20200401.csv')
-data_2020_q3 = pd.read_csv('dublinbikes_20200101_20200401.csv')
-data_2020_q4 = pd.read_csv('dublinbikes_20200101_20200401.csv')
+data_2020_q2 = pd.read_csv('dublinbikes_20200401_20200701.csv')
+data_2020_q3 = pd.read_csv('dublinbikes_20200701_20201001.csv')
+data_2020_q4 = pd.read_csv('dublinbikes_20201001_20210101.csv')
 data_2020 = pd.concat([data_2020_q1,data_2020_q2,data_2020_q3,data_2020_q4],axis=0)
 
 data_2021_q1 = pd.read_csv('dublinbikes_20210101_20210401.csv')
-data_2021_q2 = pd.read_csv('dublinbikes_20210101_20210401.csv')
-data_2021_q3 = pd.read_csv('dublinbikes_20210101_20210401.csv')
-data_2021_q4 = pd.read_csv('dublinbikes_20210101_20210401.csv')
+data_2021_q2 = pd.read_csv('dublinbikes_20210401_20210701.csv')
+data_2021_q3 = pd.read_csv('dublinbikes_20210701_20211001.csv')
+data_2021_q4 = pd.read_csv('dublinbikes_20211001_20220101.csv')
 data_2021 = pd.concat([data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4],axis=0)
 
 
@@ -105,7 +105,7 @@ def clean_data(data_to_run):
     data_to_run['activity'] = np.where(abs(data_to_run['bike_change']) >= 10, "recirculate", "personal_use")
     data_to_run['too_full/empty'] = np.where(data_to_run['proportion_filled'] < .1, 1, np.where(data_to_run['proportion_filled'] > .9, 1,0 ))
 
-    # Identify timestamps with recirculating and drop them from the dataframe
+    # Count how many times in the day the bikes were recirculated
     data_to_run['recirculating'] = np.where(data_to_run['activity'] == 'recirculate', 1,0)
     data_to_run['join_on'] = data_to_run['station_id'].apply(str)  + (data_to_run['date']).apply(str) 
     join_table= data_to_run.groupby(['join_on'])['recirculating'].sum()
@@ -134,7 +134,7 @@ def clean_Kmeans_data(data_to_run):
     df_kmeans = df_kmeans.dropna()
     return df_kmeans
 #%%
-'''Define function to run teh Elbow test for Kmeans testing'''
+'''Define function to run the Elbow test for Kmeans testing'''
 def elbow_test(df_kmeans):
     '''Elbow Method - finding the optimal K '''
     distortions = []
@@ -178,14 +178,15 @@ def plot_clusters(plot, title):
                             zoom_start=12)
     title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
     dublin_map.get_root().html.add_child(folium.Element(title_html))
-    for LATITUDE, LONGITUDE, cluster in zip(plot['latitude'],plot['longitude'], plot['cluster']):
+    for LATITUDE, LONGITUDE, cluster, name in zip(plot['latitude'],plot['longitude'], plot['cluster'], plot['name']):
         folium.CircleMarker(
             [LATITUDE, LONGITUDE],
             color = 'b',
             radius = 8,
             fill_color=colordict[cluster],
             fill=True,
-            fill_opacity=0.9
+            fill_opacity=0.9,
+            popup=name
             ).add_to(dublin_map)
 
 
@@ -244,16 +245,41 @@ for plot,title in zip(plots,titles):
 
 
 #%%
-# df_cluster_ids=df_kmeans[['station_id','cluster']].drop_duplicates()
-# df_cluster_ids = df_cluster_ids.sort_values('station_id')
-# df_cluster_ids=df_cluster_ids.reset_index()
-# df_cluster_ids = df_cluster_ids[['station_id','cluster']]
-# data_to_run_clusters = data_to_run.merge(df_cluster_ids,on='station_id',how='left')
+'''Join clusters back into clean data'''
+def join_clusters(df_clusters,df_clean):
+    '''Join clusters back into clean data'''
+    df_clusters[['station_id','cluster']].drop_duplicates()
+    df_clusters = df_clusters.sort_values('station_id')
+    df_clusters=df_clusters.reset_index()
+    df_clusters = df_clusters[['station_id','cluster']]
+    df_clean_clusters = df_clean.merge(df_clusters,on='station_id',how='left')
+    return df_clean_clusters
 
 
     
 
 # %%
+data_clean_clusters_2019 = join_clusters(clusters_2019,data_2019_clean)
+data_clean_clusters_2020 = join_clusters(clusters_2020,data_2020_clean)
+data_clean_clusters_2021 = join_clusters(clusters_2021,data_2021_clean)
+
+
+#%%
+data_2019_vs_2021 = pd.concat([data_clean_clusters_2019,data_clean_clusters_2021],axis=0)
+#%%
+palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+sns.set_style('darkgrid')
+sns.relplot(
+x='hour',
+y='proportion_filled',
+kind = 'line',
+data=data_clean_clusters_2019,
+col='station_id',
+col_wrap=10,
+hue = 'cluster',
+palette = palette
+        )
+plt.ylim(0,1)
 #%% 
 '''boxplot 9am Vs 5pm'''
 # df_midday = data_to_run.loc[
@@ -317,7 +343,7 @@ plotting the workday as the hue we should see changes in the stations only used 
 # x='hour',
 # y='proportion_filled',
 # kind = 'line',
-# data=data_to_run_clusters,
+# data=data_clean_clusters_2019,
 # col='station_id',
 # col_wrap=10,
 # hue = 'cluster',
