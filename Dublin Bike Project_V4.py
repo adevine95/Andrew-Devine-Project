@@ -169,14 +169,16 @@ def find_clusters(df_clusters):
 
     return locations
 #%%
-'''Define: Plot the clusters on a map of Dublin'''
-def plot_clusters(i):
+'''Define function to plot the clusters on a map of Dublin'''
+def plot_clusters(plot, title):
     
     colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
     bstreet = (53.35677,-6.26814)
     dublin_map = folium.Map(location = bstreet,
                             zoom_start=12)
-    for LATITUDE, LONGITUDE, cluster in zip(i['latitude'],i['longitude'], i['cluster']):
+    title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
+    dublin_map.get_root().html.add_child(folium.Element(title_html))
+    for LATITUDE, LONGITUDE, cluster in zip(plot['latitude'],plot['longitude'], plot['cluster']):
         folium.CircleMarker(
             [LATITUDE, LONGITUDE],
             color = 'b',
@@ -185,6 +187,10 @@ def plot_clusters(i):
             fill=True,
             fill_opacity=0.9
             ).add_to(dublin_map)
+
+
+     
+    # Add the title to the map
     return display(dublin_map)
 #%%
 '''Run function to clean the data'''
@@ -213,25 +219,26 @@ clusters_2021 = find_clusters(Kmeans_2021)
 #%%
 '''Plot clusters on map for each year'''
 plots = [clusters_2019,clusters_2020,clusters_2021]
-for i in plots:
-    plot_clusters(i)
+titles = ['clusters_2019','clusters_2020','clusters_2021']
+for plot,title in zip(plots,titles):
+    plot_clusters(plot,title)
 
-#%%
-'''Run one quarter, 2021 Q4'''
-data_2021_q4_clean = clean_data(data_2021_q4)
-Kmeans_2021_q4 = clean_Kmeans_data(data_2021_q4_clean)
-elbow_test_2021_q4 = elbow_test(Kmeans_2021_q4)
-clusters_2021_q4 = find_clusters(Kmeans_2021_q4)
-plot_clusters_2021_q4 = plot_clusters(clusters_2021_q4)
+ #%%
+# '''Run one quarter, 2021 Q4'''
+# data_2021_q4_clean = clean_data(data_2021_q4)
+# Kmeans_2021_q4 = clean_Kmeans_data(data_2021_q4_clean)
+# elbow_test_2021_q4 = elbow_test(Kmeans_2021_q4)
+# clusters_2021_q4 = find_clusters(Kmeans_2021_q4)
+# plot_clusters_2021_q4 = plot_clusters(clusters_2021_q4)
 
-#%%
-'''Run multiple quarters, don't retain data'''
-data = [data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4]
-for i in data:
-    data_clean = clean_data(i)
-    Kmeans_data = clean_Kmeans_data(data_clean)
-    clusters_data = find_clusters(Kmeans_data)
-    plot_clusters_data = plot_clusters(clusters_data)
+# #%%
+# '''Run multiple quarters, don't retain data'''
+# data = [data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4]
+# for i in data:
+#     data_clean = clean_data(i)
+#     Kmeans_data = clean_Kmeans_data(data_clean)
+#     clusters_data = find_clusters(Kmeans_data)
+#     plot_clusters_data = plot_clusters(clusters_data)
 
 
 
