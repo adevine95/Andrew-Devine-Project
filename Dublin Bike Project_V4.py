@@ -9,8 +9,12 @@ import seaborn as sns
 import sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
-#%%
+#%% Bring in data
 '''Bring in Dublin bike data'''
+data_2018_q3 = pd.read_csv('dublinbikes_20180701_20181001.csv')
+data_2018_q4 = pd.read_csv('dublinbikes_20181001_20190101.csv')
+data_2018 = pd.concat([data_2018_q3,data_2018_q4],axis=0)
+
 data_2019_q1 = pd.read_csv('dublinbikes_20190101_20190401.csv')
 data_2019_q2 = pd.read_csv('dublinbikes_20190401_20190701.csv')
 data_2019_q3 = pd.read_csv('dublinbikes_20190701_20191001.csv')
@@ -195,32 +199,36 @@ def plot_clusters(plot, title):
     return display(dublin_map)
 #%%
 '''Run function to clean the data'''
+data_2018_clean = clean_data(data_2018)
 data_2019_clean = clean_data(data_2019)
 data_2020_clean = clean_data(data_2020)
 data_2021_clean = clean_data(data_2021)
 
 #%%
 '''Manipulate data for Kmeans clustering'''
+Kmeans_2018 = clean_Kmeans_data(data_2018_clean)
 Kmeans_2019 = clean_Kmeans_data(data_2019_clean)
 Kmeans_2020 = clean_Kmeans_data(data_2020_clean)
 Kmeans_2021 = clean_Kmeans_data(data_2021_clean)
 
 #%%
 '''Run the elbow test for Kmeans clustering'''
+elbow_test_2018 = elbow_test(Kmeans_2018,)
 elbow_test_2019 = elbow_test(Kmeans_2019)
 elbow_test_2020 = elbow_test(Kmeans_2020)
 elbow_test_2021 = elbow_test(Kmeans_2021)
 
 #%%
 '''Run Kmeans Clustering'''
+clusters_2018 = find_clusters(Kmeans_2018)
 clusters_2019 = find_clusters(Kmeans_2019)
 clusters_2020 = find_clusters(Kmeans_2020)
 clusters_2021 = find_clusters(Kmeans_2021)
 
 #%%
 '''Plot clusters on map for each year'''
-plots = [clusters_2019,clusters_2020,clusters_2021]
-titles = ['clusters_2019','clusters_2020','clusters_2021']
+plots = [clusters_2018,clusters_2019,clusters_2020,clusters_2021]
+titles = ['clusters_2018','clusters_2019','clusters_2020','clusters_2021']
 for plot,title in zip(plots,titles):
     plot_clusters(plot,title)
 
@@ -245,7 +253,7 @@ for plot,title in zip(plots,titles):
 
 
 #%%
-'''Join clusters back into clean data'''
+'''Define function to join clusters back into clean data'''
 def join_clusters(df_clusters,df_clean):
     '''Join clusters back into clean data'''
     df_clusters[['station_id','cluster']].drop_duplicates()
@@ -259,27 +267,54 @@ def join_clusters(df_clusters,df_clean):
     
 
 # %%
+'''Join clusters back into clean data'''
+data_clean_clusters_2018 = join_clusters(clusters_2018,data_2018_clean)
 data_clean_clusters_2019 = join_clusters(clusters_2019,data_2019_clean)
 data_clean_clusters_2020 = join_clusters(clusters_2020,data_2020_clean)
 data_clean_clusters_2021 = join_clusters(clusters_2021,data_2021_clean)
 
+#%%
+'''Tidy up cluster data'''
+locations_2018 = data_clean_clusters_2018[['station_id','name','cluster']].drop_duplicates()
+locations_2019 = data_clean_clusters_2019[['station_id','name','cluster']].drop_duplicates()
+locations_2020 = data_clean_clusters_2020[['station_id','name','cluster']].drop_duplicates()
+locations_2021 = data_clean_clusters_2021[['station_id','name','cluster']].drop_duplicates()
+
+locations_2018.rename(columns={'cluster':'2018'},inplace=True)
+locations_2019.rename(columns={'cluster':'2019'},inplace=True)
+locations_2020.rename(columns={'cluster':'2020'},inplace=True)
+locations_2021.rename(columns={'cluster':'2021'},inplace=True)
+
+locations_2018.set_index(['station_id','name'])
+locations_2019.set_index(['station_id','name'])
+locations_2020.set_index(['station_id','name'])
+locations_2021.set_index(['station_id','name'])
+
+#%%
+'''merging the locations and clustes for each year '''
+locations_summary = pd.merge(locations_2018,locations_2019, on=['station_id','name'],how = 'outer')
+locations_summary = pd.merge(locations_summary,locations_2020, on=['station_id','name'],how = 'outer')
+locations_summary = pd.merge(locations_summary,locations_2021, on=['station_id','name'],how = 'outer')
+locations_summary = locations_summary.fillna()
+locations_summary = locations_summary.sort_values('station_id')
+locations_summary.to_csv('locations_summary.csv')
 
 #%%
 data_2019_vs_2021 = pd.concat([data_clean_clusters_2019,data_clean_clusters_2021],axis=0)
 #%%
-palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
-sns.set_style('darkgrid')
-sns.relplot(
-x='hour',
-y='proportion_filled',
-kind = 'line',
-data=data_clean_clusters_2019,
-col='station_id',
-col_wrap=10,
-hue = 'cluster',
-palette = palette
-        )
-plt.ylim(0,1)
+# palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+# sns.set_style('darkgrid')
+# sns.relplot(
+# x='hour',
+# y='proportion_filled',
+# kind = 'line',
+# data=data_clean_clusters_2019,
+# col='station_id',
+# col_wrap=10,
+# hue = 'cluster',
+# palette = palette
+#         )
+# plt.ylim(0,1)
 #%% 
 '''boxplot 9am Vs 5pm'''
 # df_midday = data_to_run.loc[
