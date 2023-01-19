@@ -1,13 +1,9 @@
 #%%
 import pandas as pd
 import folium
-import datetime 
 import numpy as np
-from sympy.plotting.tests.test_plot import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sklearn
-from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 #%% Bring in data
 '''Bring in Dublin bike data'''
@@ -159,10 +155,10 @@ def elbow_test(df_kmeans):
     return plt.show()
 #%%
 '''Define function to run Kmeans testing to find similar clusters'''
-def find_clusters(df_clusters):
+def find_clusters(df_clusters,n):
     '''Function to run Kmeans clustering'''
     X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
-    KM = KMeans(n_clusters=5) 
+    KM = KMeans(n_clusters=n) 
     KM.fit(X)
     clusters = KM.predict(X)
 
@@ -174,9 +170,12 @@ def find_clusters(df_clusters):
     return locations
 #%%
 '''Define function to plot the clusters on a map of Dublin'''
-def plot_clusters(plot, title):
+colourdict_3 ={0: 'blue', 1: 'red', 2: 'orange'}
+colourdict_4 = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green'}
+colourdict_5 = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+def plot_clusters(plot, title,colourdict_):
     
-    colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+    colordict = colourdict_
     bstreet = (53.35677,-6.26814)
     dublin_map = folium.Map(location = bstreet,
                             zoom_start=12)
@@ -220,34 +219,35 @@ elbow_test_2021 = elbow_test(Kmeans_2021)
 
 #%%
 '''Run Kmeans Clustering'''
-clusters_2018 = find_clusters(Kmeans_2018)
-clusters_2019 = find_clusters(Kmeans_2019)
-clusters_2020 = find_clusters(Kmeans_2020)
-clusters_2021 = find_clusters(Kmeans_2021)
+clusters_2018 = find_clusters(Kmeans_2018,5)
+clusters_2019 = find_clusters(Kmeans_2019,5)
+clusters_2020 = find_clusters(Kmeans_2020,4)
+clusters_2021 = find_clusters(Kmeans_2021,4)
 
 #%%
 '''Plot clusters on map for each year'''
 plots = [clusters_2018,clusters_2019,clusters_2020,clusters_2021]
-titles = ['clusters_2018','clusters_2019','clusters_2020','clusters_2021']
-for plot,title in zip(plots,titles):
-    plot_clusters(plot,title)
+titles = ['5clusters_2018','5clusters_2019','4clusters_2020','4clusters_2021']
+colourdicts = [colourdict_5,colourdict_5,colourdict_4,colourdict_4]
+for plot,title,colourdict_ in zip(plots,titles,colourdicts):
+    plot_clusters(plot,title,colourdict_)
+
 
  #%%
-# '''Run one quarter, 2021 Q4'''
-# data_2021_q4_clean = clean_data(data_2021_q4)
-# Kmeans_2021_q4 = clean_Kmeans_data(data_2021_q4_clean)
-# elbow_test_2021_q4 = elbow_test(Kmeans_2021_q4)
-# clusters_2021_q4 = find_clusters(Kmeans_2021_q4)
-# plot_clusters_2021_q4 = plot_clusters(clusters_2021_q4)
+'''Run one quarter, 2020 Q1'''
+data_2020_q1_clean = clean_data(data_2020_q1)
+Kmeans_2020_q1 = clean_Kmeans_data(data_2020_q1_clean)
+clusters_2020_q1 = find_clusters(Kmeans_2020_q1)
+plot_clusters_2020_q1 = plot_clusters(clusters_2020_q1,'clusters_2020_q1')
 
-# #%%
-# '''Run multiple quarters, don't retain data'''
-# data = [data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4]
-# for i in data:
-#     data_clean = clean_data(i)
-#     Kmeans_data = clean_Kmeans_data(data_clean)
-#     clusters_data = find_clusters(Kmeans_data)
-#     plot_clusters_data = plot_clusters(clusters_data)
+ #%%
+'''Run multiple quarters, don't retain data'''
+data = [data_2020_q1,data_2020_q2,data_2020_q3,data_2020_q4]
+for i in data:
+    data_clean = clean_data(i)
+    Kmeans_data = clean_Kmeans_data(data_clean)
+    clusters_data = find_clusters(Kmeans_data)
+    plot_clusters_data = plot_clusters(clusters_data,'quarterly clusters')
 
 
 
@@ -291,30 +291,145 @@ locations_2020.set_index(['station_id','name'])
 locations_2021.set_index(['station_id','name'])
 
 #%%
-'''merging the locations and clustes for each year '''
+'''merging the locations and clusters for each year '''
 locations_summary = pd.merge(locations_2018,locations_2019, on=['station_id','name'],how = 'outer')
 locations_summary = pd.merge(locations_summary,locations_2020, on=['station_id','name'],how = 'outer')
 locations_summary = pd.merge(locations_summary,locations_2021, on=['station_id','name'],how = 'outer')
-locations_summary = locations_summary.fillna()
 locations_summary = locations_summary.sort_values('station_id')
 locations_summary.to_csv('locations_summary.csv')
 
 #%%
-data_2019_vs_2021 = pd.concat([data_clean_clusters_2019,data_clean_clusters_2021],axis=0)
+
 #%%
-# palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
-# sns.set_style('darkgrid')
-# sns.relplot(
-# x='hour',
-# y='proportion_filled',
-# kind = 'line',
-# data=data_clean_clusters_2019,
-# col='station_id',
-# col_wrap=10,
-# hue = 'cluster',
-# palette = palette
-#         )
-# plt.ylim(0,1)
+'''Define function to run Kmeans testing to find similar clusters'''
+def find_clusters_4(df_clusters):
+    '''Function to run Kmeans clustering'''
+    X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
+    KM = KMeans(n_clusters=4) 
+    KM.fit(X)
+    clusters = KM.predict(X)
+
+    locations = df_clusters
+    locations['cluster'] = clusters
+    locations = locations.sort_values(['station_id'])
+    locations = locations.reset_index()
+
+    return locations
+#%%
+'''Define function to plot the clusters on a map of Dublin'''
+def plot_clusters_4(plot, title):
+    
+    colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green'}
+    bstreet = (53.35677,-6.26814)
+    dublin_map = folium.Map(location = bstreet,
+                            zoom_start=12)
+    title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
+    dublin_map.get_root().html.add_child(folium.Element(title_html))
+    for LATITUDE, LONGITUDE, cluster, name in zip(plot['latitude'],plot['longitude'], plot['cluster'], plot['name']):
+        folium.CircleMarker(
+            [LATITUDE, LONGITUDE],
+            color = 'b',
+            radius = 8,
+            fill_color=colordict[cluster],
+            fill=True,
+            fill_opacity=0.9,
+            popup=name
+            ).add_to(dublin_map)
+#%%
+ #%%
+find_clusters_4(Kmeans_2020)
+plot_clusters_4(clusters_2020,'4_clusters_2020')
+     
+    
+#%%
+'''Anchor the colours of the plots based on 2019 clusters'''
+#This finds the list of station ids for each cluster in 2019
+# for id in range(5):
+#     id_result=locations_2019.loc[locations_2019['2019']==id]
+#     id_list_result = list(id_result['station_id'])
+#     exec('id_list_{}=id_list_result'.format(id))
+      
+# #Then find the most common cluster numbers for the same stations in each year
+# id_lists =  [id_list_0,id_list_1,id_list_2,id_list_3,id_list_4]
+
+# for i in range(5):
+#     id_list_2018=locations_2018.loc[locations_2018['station_id'].isin(id_lists[i])]
+#     id_2018_result = id_list_2018['2018'].mode()[0]
+#     exec('df_2018_{}=id_2018_result'.format(i))
+# for i in range(5):
+#     id_list_2020=locations_2020.loc[locations_2020['station_id'].isin(id_lists[i])]
+#     id_2020_result = id_list_2020['2020'].mode()[0]
+#     exec('df_2020_{}=id_2020_result'.format(i))
+# for i in range(5):
+#     id_list_2021=locations_2021.loc[locations_2021['station_id'].isin(id_lists[i])]
+#     id_2021_result = id_list_2021['2021'].mode()[0]
+#     exec('df_2021_{}=id_2021_result'.format(i))
+    
+# colourdict_2018 = {df_2018_0: 'blue', df_2018_1: 'red', df_2018_2: 'orange', df_2018_3: 'green', df_2018_4: 'purple'}    
+# colourdict_2020 = {df_2020_0: 'blue', df_2020_1: 'red', df_2020_2: 'orange', df_2020_3: 'green', df_2020_4: 'purple'}    
+# colourdict_2021 = {df_2021_0: 'blue', df_2021_1: 'red', df_2021_2: 'orange', df_2021_3: 'green', df_2021_4: 'purple'}    
+# colourdict_2019 = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+#%%
+'''Define function to plot the clusters on a map of Dublin with dynamic colour map'''
+# def plot_clusters_anchored(plot, title,colourdict):
+    
+#     colordict = colourdict
+#     bstreet = (53.35677,-6.26814)
+#     dublin_map = folium.Map(location = bstreet,
+#                             zoom_start=12)
+#     title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
+#     dublin_map.get_root().html.add_child(folium.Element(title_html))
+#     for LATITUDE, LONGITUDE, cluster, name in zip(plot['latitude'],plot['longitude'], plot['cluster'], plot['name']):
+#         folium.CircleMarker(
+#             [LATITUDE, LONGITUDE],
+#             color = 'b',
+#             radius = 8,
+#             fill_color=colordict[cluster],
+#             fill=True,
+#             fill_opacity=0.9,
+#             popup=name
+#             ).add_to(dublin_map)
+
+
+     
+#     # Add the title to the map
+#     return display(dublin_map)
+
+# #%%
+# #map plots with anchored colours
+# '''Plot clusters on map for each year with anchored clusters'''
+# plots = [clusters_2018,clusters_2019,clusters_2020,clusters_2021]
+# titles = ['clusters_2018','clusters_2019','clusters_2020','clusters_2021']
+# colour_dicts = [colourdict_2018,colourdict_2019,colourdict_2020,colourdict_2021]
+# for plot,title,colour_dict in zip(plots,titles,colour_dicts):
+#     plot_clusters_anchored(plot,title,colour_dict)
+
+
+
+#%%    
+id_list_2018=locations_2018.loc[locations_2018['station_id'].isin(id_list_0)]
+id_2018_0=id_list_2018['2018'].mode()[0]
+#%%
+'''
+relplot showing % of bikes in a each stand over the course of a day
+I'm hoping that U shaped graphs will show origin stations that people leave during the day ie. peoples homes
+n shaped graphs should show destination stations that people arrive at in the morning and leave from at night 
+plotting the workday as the hue we should see changes in the stations only used for commuting
+Would like to compare these against the clusters identified through KMeans.
+'''
+palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+sns.set_style('darkgrid')
+sns.relplot(
+x='hour',
+y='proportion_filled',
+kind = 'line',
+data=data_clean_clusters_2019,
+col='station_id',
+col_wrap=10,
+hue = 'cluster',
+palette = palette
+        )
+plt.ylim(0,1)
 #%% 
 '''boxplot 9am Vs 5pm'''
 # df_midday = data_to_run.loc[
