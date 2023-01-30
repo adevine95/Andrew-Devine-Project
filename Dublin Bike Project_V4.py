@@ -96,7 +96,7 @@ def clean_data(data_to_run):
     data_to_run['time_of_day'].replace(hour_dict,inplace=True)
     data_to_run['time_of_day'] = data_to_run['time_of_day'].astype('category')
 
-    '''Identify days when they recirculate the bikes 
+    '''Identify days when they recirculate the bikes, I might drop these from the data 
     '''
     # identify bikes coming and going
     data_to_run['bike_change'] = data_to_run.groupby('station_id')['free_stands'].diff(-1)
@@ -221,36 +221,16 @@ elbow_test_2021 = elbow_test(Kmeans_2021)
 '''Run Kmeans Clustering'''
 clusters_2018 = find_clusters(Kmeans_2018,5)
 clusters_2019 = find_clusters(Kmeans_2019,5)
-clusters_2020 = find_clusters(Kmeans_2020,4)
-clusters_2021 = find_clusters(Kmeans_2021,4)
+clusters_2020 = find_clusters(Kmeans_2020,5)
+clusters_2021 = find_clusters(Kmeans_2021,5)
 
 #%%
 '''Plot clusters on map for each year'''
 plots = [clusters_2018,clusters_2019,clusters_2020,clusters_2021]
-titles = ['5clusters_2018','5clusters_2019','4clusters_2020','4clusters_2021']
-colourdicts = [colourdict_5,colourdict_5,colourdict_4,colourdict_4]
+titles = ['5clusters_2018','5clusters_2019','5clusters_2020','5clusters_2021']
+colourdicts = [colourdict_5,colourdict_5,colourdict_5,colourdict_5]
 for plot,title,colourdict_ in zip(plots,titles,colourdicts):
     plot_clusters(plot,title,colourdict_)
-
-
- #%%
-'''Run one quarter, 2020 Q1'''
-data_2020_q1_clean = clean_data(data_2020_q1)
-Kmeans_2020_q1 = clean_Kmeans_data(data_2020_q1_clean)
-clusters_2020_q1 = find_clusters(Kmeans_2020_q1)
-plot_clusters_2020_q1 = plot_clusters(clusters_2020_q1,'clusters_2020_q1')
-
- #%%
-'''Run multiple quarters, don't retain data'''
-data = [data_2020_q1,data_2020_q2,data_2020_q3,data_2020_q4]
-for i in data:
-    data_clean = clean_data(i)
-    Kmeans_data = clean_Kmeans_data(data_clean)
-    clusters_data = find_clusters(Kmeans_data)
-    plot_clusters_data = plot_clusters(clusters_data,'quarterly clusters')
-
-
-
 
 #%%
 '''Define function to join clusters back into clean data'''
@@ -272,73 +252,111 @@ data_clean_clusters_2018 = join_clusters(clusters_2018,data_2018_clean)
 data_clean_clusters_2019 = join_clusters(clusters_2019,data_2019_clean)
 data_clean_clusters_2020 = join_clusters(clusters_2020,data_2020_clean)
 data_clean_clusters_2021 = join_clusters(clusters_2021,data_2021_clean)
-
 #%%
-'''Tidy up cluster data'''
-locations_2018 = data_clean_clusters_2018[['station_id','name','cluster']].drop_duplicates()
-locations_2019 = data_clean_clusters_2019[['station_id','name','cluster']].drop_duplicates()
-locations_2020 = data_clean_clusters_2020[['station_id','name','cluster']].drop_duplicates()
-locations_2021 = data_clean_clusters_2021[['station_id','name','cluster']].drop_duplicates()
+'''
+relplot showing % of bikes in a each stand over the course of a day
+I'm hoping that U shaped graphs will show origin stations that people leave during the day ie. peoples homes
+n shaped graphs should show destination stations that people arrive at in the morning and leave from at night 
+plotting the workday as the hue we should see changes in the stations only used for commuting
+Would like to compare these against the clusters identified through KMeans.
+'''
+palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+sns.set_style('darkgrid')
+sns.relplot(
+x='hour',
+y='proportion_filled',
+kind = 'line',
+data=data_clean_clusters_2019,
+col='station_id',
+col_wrap=10,
+hue = 'cluster',
+palette = palette
+        )
+plt.ylim(0,1)
 
-locations_2018.rename(columns={'cluster':'2018'},inplace=True)
-locations_2019.rename(columns={'cluster':'2019'},inplace=True)
-locations_2020.rename(columns={'cluster':'2020'},inplace=True)
-locations_2021.rename(columns={'cluster':'2021'},inplace=True)
-
-locations_2018.set_index(['station_id','name'])
-locations_2019.set_index(['station_id','name'])
-locations_2020.set_index(['station_id','name'])
-locations_2021.set_index(['station_id','name'])
-
-#%%
-'''merging the locations and clusters for each year '''
-locations_summary = pd.merge(locations_2018,locations_2019, on=['station_id','name'],how = 'outer')
-locations_summary = pd.merge(locations_summary,locations_2020, on=['station_id','name'],how = 'outer')
-locations_summary = pd.merge(locations_summary,locations_2021, on=['station_id','name'],how = 'outer')
-locations_summary = locations_summary.sort_values('station_id')
-locations_summary.to_csv('locations_summary.csv')
-
-#%%
-
-#%%
-'''Define function to run Kmeans testing to find similar clusters'''
-def find_clusters_4(df_clusters):
-    '''Function to run Kmeans clustering'''
-    X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
-    KM = KMeans(n_clusters=4) 
-    KM.fit(X)
-    clusters = KM.predict(X)
-
-    locations = df_clusters
-    locations['cluster'] = clusters
-    locations = locations.sort_values(['station_id'])
-    locations = locations.reset_index()
-
-    return locations
-#%%
-'''Define function to plot the clusters on a map of Dublin'''
-def plot_clusters_4(plot, title):
-    
-    colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green'}
-    bstreet = (53.35677,-6.26814)
-    dublin_map = folium.Map(location = bstreet,
-                            zoom_start=12)
-    title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
-    dublin_map.get_root().html.add_child(folium.Element(title_html))
-    for LATITUDE, LONGITUDE, cluster, name in zip(plot['latitude'],plot['longitude'], plot['cluster'], plot['name']):
-        folium.CircleMarker(
-            [LATITUDE, LONGITUDE],
-            color = 'b',
-            radius = 8,
-            fill_color=colordict[cluster],
-            fill=True,
-            fill_opacity=0.9,
-            popup=name
-            ).add_to(dublin_map)
-#%%
  #%%
-find_clusters_4(Kmeans_2020)
-plot_clusters_4(clusters_2020,'4_clusters_2020')
+# '''Run one quarter, 2020 Q1'''
+# data_2020_q1_clean = clean_data(data_2020_q1)
+# Kmeans_2020_q1 = clean_Kmeans_data(data_2020_q1_clean)
+# clusters_2020_q1 = find_clusters(Kmeans_2020_q1)
+# plot_clusters_2020_q1 = plot_clusters(clusters_2020_q1,'clusters_2020_q1')
+
+#  #%%
+# '''Run multiple quarters, don't retain data'''
+# data = [data_2020_q1,data_2020_q2,data_2020_q3,data_2020_q4]
+# for i in data:
+#     data_clean = clean_data(i)
+#     Kmeans_data = clean_Kmeans_data(data_clean)
+#     clusters_data = find_clusters(Kmeans_data)
+#     plot_clusters_data = plot_clusters(clusters_data,'quarterly clusters')
+
+#%%
+# #%%
+# '''Tidy up cluster data'''
+# locations_2018 = data_clean_clusters_2018[['station_id','name','cluster']].drop_duplicates()
+# locations_2019 = data_clean_clusters_2019[['station_id','name','cluster']].drop_duplicates()
+# locations_2020 = data_clean_clusters_2020[['station_id','name','cluster']].drop_duplicates()
+# locations_2021 = data_clean_clusters_2021[['station_id','name','cluster']].drop_duplicates()
+
+# locations_2018.rename(columns={'cluster':'2018'},inplace=True)
+# locations_2019.rename(columns={'cluster':'2019'},inplace=True)
+# locations_2020.rename(columns={'cluster':'2020'},inplace=True)
+# locations_2021.rename(columns={'cluster':'2021'},inplace=True)
+
+# locations_2018.set_index(['station_id','name'])
+# locations_2019.set_index(['station_id','name'])
+# locations_2020.set_index(['station_id','name'])
+# locations_2021.set_index(['station_id','name'])
+
+# #%%
+# '''merging the locations and clusters for each year '''
+# locations_summary = pd.merge(locations_2018,locations_2019, on=['station_id','name'],how = 'outer')
+# locations_summary = pd.merge(locations_summary,locations_2020, on=['station_id','name'],how = 'outer')
+# locations_summary = pd.merge(locations_summary,locations_2021, on=['station_id','name'],how = 'outer')
+# locations_summary = locations_summary.sort_values('station_id')
+# locations_summary.to_csv('locations_summary.csv')
+
+# #%%
+
+# #%%
+# '''Define function to run Kmeans testing to find similar clusters'''
+# def find_clusters_4(df_clusters):
+#     '''Function to run Kmeans clustering'''
+#     X = np.array(df_clusters.drop(columns=['station_id', 'latitude', 'longitude'], axis = 1).astype(float))
+#     KM = KMeans(n_clusters=4) 
+#     KM.fit(X)
+#     clusters = KM.predict(X)
+
+#     locations = df_clusters
+#     locations['cluster'] = clusters
+#     locations = locations.sort_values(['station_id'])
+#     locations = locations.reset_index()
+
+#     return locations
+# #%%
+# '''Define function to plot the clusters on a map of Dublin'''
+# def plot_clusters_4(plot, title):
+    
+#     colordict = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green'}
+#     bstreet = (53.35677,-6.26814)
+#     dublin_map = folium.Map(location = bstreet,
+#                             zoom_start=12)
+#     title_html = f'<h3 align="center" style="font-size:20px"><b>{title}</b></h3>'
+#     dublin_map.get_root().html.add_child(folium.Element(title_html))
+#     for LATITUDE, LONGITUDE, cluster, name in zip(plot['latitude'],plot['longitude'], plot['cluster'], plot['name']):
+#         folium.CircleMarker(
+#             [LATITUDE, LONGITUDE],
+#             color = 'b',
+#             radius = 8,
+#             fill_color=colordict[cluster],
+#             fill=True,
+#             fill_opacity=0.9,
+#             popup=name
+#             ).add_to(dublin_map)
+# #%%
+#  #%%
+# find_clusters_4(Kmeans_2020)
+# plot_clusters_4(clusters_2020,'4_clusters_2020')
      
     
 #%%
@@ -407,29 +425,29 @@ plot_clusters_4(clusters_2020,'4_clusters_2020')
 
 
 #%%    
-id_list_2018=locations_2018.loc[locations_2018['station_id'].isin(id_list_0)]
-id_2018_0=id_list_2018['2018'].mode()[0]
+# id_list_2018=locations_2018.loc[locations_2018['station_id'].isin(id_list_0)]
+# id_2018_0=id_list_2018['2018'].mode()[0]
 #%%
-'''
-relplot showing % of bikes in a each stand over the course of a day
-I'm hoping that U shaped graphs will show origin stations that people leave during the day ie. peoples homes
-n shaped graphs should show destination stations that people arrive at in the morning and leave from at night 
-plotting the workday as the hue we should see changes in the stations only used for commuting
-Would like to compare these against the clusters identified through KMeans.
-'''
-palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
-sns.set_style('darkgrid')
-sns.relplot(
-x='hour',
-y='proportion_filled',
-kind = 'line',
-data=data_clean_clusters_2019,
-col='station_id',
-col_wrap=10,
-hue = 'cluster',
-palette = palette
-        )
-plt.ylim(0,1)
+# '''
+# relplot showing % of bikes in a each stand over the course of a day
+# I'm hoping that U shaped graphs will show origin stations that people leave during the day ie. peoples homes
+# n shaped graphs should show destination stations that people arrive at in the morning and leave from at night 
+# plotting the workday as the hue we should see changes in the stations only used for commuting
+# Would like to compare these against the clusters identified through KMeans.
+# '''
+# palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+# sns.set_style('darkgrid')
+# sns.relplot(
+# x='hour',
+# y='proportion_filled',
+# kind = 'line',
+# data=data_clean_clusters_2019,
+# col='station_id',
+# col_wrap=10,
+# hue = 'cluster',
+# palette = palette
+#         )
+# plt.ylim(0,1)
 #%% 
 '''boxplot 9am Vs 5pm'''
 # df_midday = data_to_run.loc[
