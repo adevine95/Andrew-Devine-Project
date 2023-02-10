@@ -8,6 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+import re
 #%% Bring in data
 '''Here I'm bringing in the Dublin bike data stored in CSV files'''
 data_2018_q3 = pd.read_csv('dublinbikes_20180701_20181001.csv')
@@ -32,7 +33,22 @@ data_2021_q3 = pd.read_csv('dublinbikes_20210701_20211001.csv')
 data_2021_q4 = pd.read_csv('dublinbikes_20211001_20220101.csv')
 data_2021 = pd.concat([data_2021_q1,data_2021_q2,data_2021_q3,data_2021_q4],axis=0)
 
+#%%
+'''This code useds REGEX to get a list of all the Station names from a string'''
+Stations = list(data_2018_q3['NAME'].unique())
+Stations_string = ''.join(Stations)
+x = re.findall(r'\w+\s\STREET',Stations_string)
+print(x)
 
+#%%
+'''This function decides if a time is pre or post pandemic'''
+pandemic_time = pd.to_datetime('2020-03-12 00:00:00')
+def pandemic_flag(x):
+    if x > pandemic_time:
+        return 'post pandemic'
+    else:
+        return 'pre pandemic'
+    return x
 
 #%%
 '''Define function to clean raw data'''
@@ -106,24 +122,44 @@ def clean_data(data_to_run):
     data_to_run['bikes_put_in'] = np.where(data_to_run['bike_change'] > 0, data_to_run['bike_change'], 0)
     data_to_run['bikes_taken_out'] = np.where(data_to_run['bike_change'] < 0, data_to_run['bike_change'], 0)
     data_to_run['activity'] = np.where(abs(data_to_run['bike_change']) >= 10, "recirculate", "personal_use")
-    data_to_run['too_full/empty'] = np.where(data_to_run['proportion_filled'] < .1, 1, np.where(data_to_run['proportion_filled'] > .9, 1,0 ))
+    # data_to_run['too_full/empty'] = np.where(data_to_run['proportion_filled'] < .1, 1, np.where(data_to_run['proportion_filled'] > .9, 1,0 ))
+    data_to_run['pandemic_flag'] = ''
+    
+    #Identify pre/post Pandemic years 
+    for i in range(len(data_to_run)):
+        data_to_run['pandemic_flag'].iloc[i]= pandemic_flag(data_to_run['timestamp'].iloc[i])
 
-    # Count how many times in the day the bikes were recirculated
-    data_to_run['recirculating'] = np.where(data_to_run['activity'] == 'recirculate', 1,0)
-    data_to_run['join_on'] = data_to_run['station_id'].apply(str)  + (data_to_run['date']).apply(str) 
-    join_table= data_to_run.groupby(['join_on'])['recirculating'].sum()
-    data_to_run = data_to_run.drop(['recirculating'], axis = 1)
-    join_table = join_table.to_frame()
-    join_table =join_table.reset_index()
-    data_to_run = pd.merge(data_to_run, join_table, on = 'join_on', how = 'left')
-    data_to_run = data_to_run.drop(['join_on'], axis = 1)
+    
+    # # Count how many times in the day the bikes were recirculated
+    # data_to_run['recirculating'] = np.where(data_to_run['activity'] == 'recirculate', 1,0)
+    # data_to_run['join_on'] = data_to_run['station_id'].apply(str)  + (data_to_run['date']).apply(str) 
+    # join_table= data_to_run.groupby(['join_on'])['recirculating'].sum()
+    # data_to_run = data_to_run.drop(['recirculating'], axis = 1)
+    # join_table = join_table.to_frame()
+    # join_table =join_table.reset_index()
+    # data_to_run = pd.merge(data_to_run, join_table, on = 'join_on', how = 'left')
+    # data_to_run = data_to_run.drop(['join_on'], axis = 1)
 
     return data_to_run
+#%%
+pandemic_time = pd.to_datetime('2020-03-12 00:00:00')
+def pandemic_flag(x):
+    if x > pandemic_time:
+        return 'post pandemic'
+    else:
+        return 'pre pandemic'
+    return x
+    
+sample_2020 = data_2020_clean.sample(100).sort_values('timestamp')
+sample_2020['pandemic_flag'] = ''
+
+for i in range(len(sample_2020)-1):
+    sample_2020['pandemic_flag'].iloc[i]= pandemic_flag(sample_2020['timestamp'].iloc[i])
+
 #%%
 '''Define function to clean data for use in Kmeans testing'''
 def clean_Kmeans_data(data_to_run):
     '''Run Kmeans clustering'''
-
     #group data into clusters
     data_to_run['cluster_group'] =  data_to_run['workday'].astype(str) + data_to_run['time_of_day'].astype(str) 
     df_personal_use= data_to_run.loc[(data_to_run['activity']=='personal_use')]
@@ -148,7 +184,6 @@ def elbow_test(df_kmeans):
         kmeans.fit(X)
         distortions.append(kmeans.inertia_)
 
-        
     plt.figure(figsize=(10,7))
     plt.plot(K, distortions, 'bx-')
     plt.xlabel('k')
@@ -164,7 +199,6 @@ def find_clusters(df_clusters,n):
     KM = KMeans(n_clusters=n) 
     KM.fit(X)
     clusters = KM.predict(X)
-
     locations = df_clusters
     locations['cluster'] = clusters
     locations = locations.sort_values(['station_id'])
@@ -193,11 +227,7 @@ def plot_clusters(plot, title,colourdict_):
             fill=True,
             fill_opacity=0.9,
             popup=name
-            ).add_to(dublin_map)
-
-
-     
-    # Add the title to the map
+            ).add_to(dublin_map) 
     return display(dublin_map)
 #%%
 '''Run function to clean the data'''
@@ -257,44 +287,37 @@ data_clean_clusters_2020 = join_clusters(clusters_2020,data_2020_clean)
 data_clean_clusters_2021 = join_clusters(clusters_2021,data_2021_clean)
 
 #%%
-'''Random forest to predict bike capacity'''
-
-rf_data_2018 = data_clean_clusters_2018[['station_id',
-                                         'proportion_filled',
-                                         'day_num',
-                                         'hour']].sample(200000)
-
-rf_data_2018['proportion_filled'] = rf_data_2018['proportion_filled'].round(decimals =2).astype(int) 
-#%%
-'''Random forest 2018'''
-x = rf_data_2018.drop('proportion_filled',axis=1)
-y = rf_data_2018['proportion_filled']
-x_train, x_test, y_train, y_test = train_test_split(x,y)
-model=RandomForestClassifier(n_estimators=100)
-model.fit(x_train,y_train)
-Y_pred=model.predict(x_test)
-# Model Accuracy, how often is the classifier correct?
-print("Accuracy:",metrics.accuracy_score(y_test, Y_pred))
-print(metrics.classification_report(y_test,Y_pred))
-#%%
 '''define function to take sample of data for random forest'''
+ # assign capacity low medium or high to proportion filled
+    #1 = Low
+    #2 = medium
+    #3 = high
+def capacity(x):
+    if x < 40:
+        return 1
+    elif x > 60:
+        return 3
+    else:
+        return 2
 def random_forest(df,size):
     rf_data = df[['station_id','proportion_filled','year','day_num','hour']].sample(size)
-    rf_data['proportion_filled'] = rf_data['proportion_filled'].round(decimals =2).astype(int) 
+    rf_data['proportion_filled'] = (rf_data['proportion_filled'].round(decimals =1)*100).astype(int) 
+    rf_data['capacity'] = rf_data['proportion_filled'].apply(capacity)
+    
     return rf_data
 
 #%%
 '''Random forest 2020'''
-rf_2020 = random_forest(data_clean_clusters_2020,200000)
-    
-x_2020 = rf_2020.drop('proportion_filled',axis=1)
-y_2020 = rf_2020['proportion_filled']
-x_train_2020, x_test_2020, y_train_2020, y_test_2020 = train_test_split(x,y)
+rf_2020 = random_forest(data_clean_clusters_2020,200000)    
+x_2020 = rf_2020.drop(['proportion_filled','capacity'],axis=1)
+y_2020 = rf_2020['capacity']
+x_train_2020, x_test_2020, y_train_2020, y_test_2020 = train_test_split(x_2020,y_2020)
+model = RandomForestClassifier()
 model.fit(x_train_2020,y_train_2020)
 Y_pred_2020=model.predict(x_test_2020)
 print("Accuracy:",metrics.accuracy_score(y_test_2020, Y_pred_2020))
 print(metrics.classification_report(y_test_2020,Y_pred_2020))
-feature_imp = pd.Series(model.feature_importances_,index=['station_id','day_num','hour']).sort_values(ascending=False)
+feature_imp = pd.Series(model.feature_importances_,index=['station_id','year','day_num','hour']).sort_values(ascending=False)
 # Creating a bar plot
 sns.barplot(x=feature_imp, y=feature_imp.index)
 # Add labels to your graph
@@ -306,13 +329,15 @@ plt.show()
 #%%
 '''Define function to run random forest'''
 def run_rf(df):
-    x = df.drop('proportion_filled',axis=1)
-    y = df['proportion_filled']
+    model = RandomForestClassifier()
+    x = df.drop(['proportion_filled','capacity'],axis=1)
+    y = df['capacity']
     x_train, x_test, y_train, y_test = train_test_split(x,y)
     model.fit(x_train,y_train)
     Y_pred = model.predict(x_test)
     print("Accuracy:{df}",metrics.accuracy_score(y_test, Y_pred))
     print(metrics.classification_report(y_test,Y_pred))
+    #print(metrics.confusion_matrix(y_test, Y_pred))
     feature_imp = pd.Series(model.feature_importances_,index=['station_id','year','day_num','hour']).sort_values(ascending=False)
     # Creating a bar plot
     sns.barplot(x=feature_imp, y=feature_imp.index)
@@ -329,8 +354,9 @@ rf_2018 = random_forest(data_clean_clusters_2018,200000)
 rf_2019 = random_forest(data_clean_clusters_2019,200000)
 rf_2020 = random_forest(data_clean_clusters_2020,200000)
 rf_2021 = random_forest(data_clean_clusters_2021,200000)
-#%%
 rf_combined = pd.concat([rf_2018,rf_2019,rf_2020,rf_2021])
+#%%
+'''Run RF on all years combined to show impact of year on capacity'''
 result_combined = run_rf(rf_combined)
 #%%
 '''Run RF for each year'''
@@ -339,22 +365,6 @@ result_2018 = run_rf(rf_2018)
 result_2019 = run_rf(rf_2019)
 result_2020 = run_rf(rf_2020)
 result_2021 = run_rf(rf_2021)
-
-
-
-
-#%%
-
-#%%
-feature_imp = pd.Series(model.feature_importances_,index=['station_id','day_num','hour']).sort_values(ascending=False)
-# Creating a bar plot
-sns.barplot(x=feature_imp, y=feature_imp.index)
-# Add labels to your graph
-plt.xlabel('Feature Importance Score')
-plt.ylabel('Features')
-plt.title("Visualizing Important Features")
-plt.legend()
-plt.show()
 
 #%%
 '''
@@ -379,9 +389,5 @@ palette = palette
 plt.ylim(0,1)
 
 
-#%%
-Stations = list(data_2018_q3['NAME'].unique())
-Stations_string = ''.join(Stations)
-x = re.findall(r'\w+\s\STREET',Stations_string)
-print(x)
+
  
