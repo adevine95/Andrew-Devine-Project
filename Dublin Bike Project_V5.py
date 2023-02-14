@@ -7,6 +7,7 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.model_selection import train_test_split
 import re
 #%% Bring in data
@@ -79,17 +80,16 @@ def clean_data(data_to_run):
     data_to_run['timestamp']= pd.to_datetime((data_to_run['timestamp']),format ='%Y-%m-%d %H:%M:%S.%f' )
     #split out individual time attributes 
 
-    data_to_run["date"] = [d.date() for d in data_to_run["timestamp"]]
-    data_to_run["time"] = [d.time() for d in data_to_run["timestamp"]]
+    #data_to_run["date"] = [d.date() for d in data_to_run["timestamp"]]
+    #data_to_run["time"] = [d.time() for d in data_to_run["timestamp"]]
     data_to_run['year'] = pd.DatetimeIndex(data_to_run['timestamp']).year
     # data_to_run['month'] = pd.DatetimeIndex(data_to_run['timestamp']).month
     data_to_run['hour'] = pd.DatetimeIndex(data_to_run['timestamp']).hour
-    data_to_run['time_of_day'] = pd.DatetimeIndex(data_to_run['timestamp']).hour
+    data_to_run['time_of_day'] = data_to_run['hour'].copy()
     # data_to_run['minute'] = pd.DatetimeIndex(data_to_run['timestamp']).minute
     data_to_run['day_num'] = pd.DatetimeIndex(data_to_run['timestamp']).weekday
-    data_to_run['day_name'] = pd.DatetimeIndex(data_to_run['timestamp']).weekday
-    data_to_run['workday'] = pd.DatetimeIndex(data_to_run['timestamp']).weekday
-    data_to_run.drop(['timestamp'], axis = 1)
+    data_to_run['day_name'] = data_to_run['day_num'].copy()
+    data_to_run['workday'] = data_to_run['day_num'].copy()
 
     #rename some data using dictionaries
     day_str = ('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')
@@ -109,7 +109,7 @@ def clean_data(data_to_run):
     hour_list= list(hour_zip)
     hour_dict = dict(hour_list)
 
-    data_to_run['day_name'].replace(day_dict,inplace=True)
+    #data_to_run['day_name'].replace(day_dict,inplace=True)
     data_to_run['workday'].replace(workday_dict,inplace=True)
     data_to_run['workday'] = data_to_run['workday'].astype('category')
     data_to_run['time_of_day'].replace(hour_dict,inplace=True)
@@ -123,11 +123,14 @@ def clean_data(data_to_run):
     data_to_run['bikes_taken_out'] = np.where(data_to_run['bike_change'] < 0, data_to_run['bike_change'], 0)
     data_to_run['activity'] = np.where(abs(data_to_run['bike_change']) >= 10, "recirculate", "personal_use")
     # data_to_run['too_full/empty'] = np.where(data_to_run['proportion_filled'] < .1, 1, np.where(data_to_run['proportion_filled'] > .9, 1,0 ))
-    data_to_run['pandemic_flag'] = ''
-    
-    #Identify pre/post Pandemic years 
-    for i in range(len(data_to_run)):
-        data_to_run['pandemic_flag'].iloc[i]= pandemic_flag(data_to_run['timestamp'].iloc[i])
+    data_to_run['pandemic_flag'] = data_to_run['timestamp']>pandemic_time
+    pan_bool = (False,True)
+    pan_str = ('pre_pandemic','post_pandemic')
+    pan_zip = zip(pan_bool,pan_str)
+    pan_list= list(pan_zip)
+    pan_dict = dict(pan_list)
+    data_to_run['pandemic_flag'].replace(pan_dict,inplace=True)
+
 
     
     # # Count how many times in the day the bikes were recirculated
@@ -141,20 +144,7 @@ def clean_data(data_to_run):
     # data_to_run = data_to_run.drop(['join_on'], axis = 1)
 
     return data_to_run
-#%%
-pandemic_time = pd.to_datetime('2020-03-12 00:00:00')
-def pandemic_flag(x):
-    if x > pandemic_time:
-        return 'post pandemic'
-    else:
-        return 'pre pandemic'
-    return x
-    
-sample_2020 = data_2020_clean.sample(100).sort_values('timestamp')
-sample_2020['pandemic_flag'] = ''
 
-for i in range(len(sample_2020)-1):
-    sample_2020['pandemic_flag'].iloc[i]= pandemic_flag(sample_2020['timestamp'].iloc[i])
 
 #%%
 '''Define function to clean data for use in Kmeans testing'''
@@ -293,39 +283,35 @@ data_clean_clusters_2021 = join_clusters(clusters_2021,data_2021_clean)
     #2 = medium
     #3 = high
 def capacity(x):
-    if x < 40:
+    if x < 20:
         return 1
-    elif x > 60:
+    elif x > 80:
         return 3
     else:
         return 2
-def random_forest(df,size):
-    rf_data = df[['station_id','proportion_filled','year','day_num','hour']].sample(size)
+def rf_sample(df,size):
+    rf_data = df[['station_id','proportion_filled','pandemic_flag','day_num','hour']].sample(size)
     rf_data['proportion_filled'] = (rf_data['proportion_filled'].round(decimals =1)*100).astype(int) 
     rf_data['capacity'] = rf_data['proportion_filled'].apply(capacity)
+    pan_flag = ('pre_pandemic','post_pandemic')
+    pan_num = (0,1)
+    pan_zip = zip(pan_flag,pan_num)
+    pan_list= list(pan_zip)
+    pan_dict = dict(pan_list)
+    rf_data['pandemic_flag'].replace(pan_dict,inplace=True)
     
     return rf_data
 
+
 #%%
-'''Random forest 2020'''
-rf_2020 = random_forest(data_clean_clusters_2020,200000)    
-x_2020 = rf_2020.drop(['proportion_filled','capacity'],axis=1)
-y_2020 = rf_2020['capacity']
-x_train_2020, x_test_2020, y_train_2020, y_test_2020 = train_test_split(x_2020,y_2020)
-model = RandomForestClassifier()
-model.fit(x_train_2020,y_train_2020)
-Y_pred_2020=model.predict(x_test_2020)
-print("Accuracy:",metrics.accuracy_score(y_test_2020, Y_pred_2020))
-print(metrics.classification_report(y_test_2020,Y_pred_2020))
-feature_imp = pd.Series(model.feature_importances_,index=['station_id','year','day_num','hour']).sort_values(ascending=False)
-# Creating a bar plot
-sns.barplot(x=feature_imp, y=feature_imp.index)
-# Add labels to your graph
-plt.xlabel('Feature Importance Score')
-plt.ylabel('Features')
-plt.title("Visualizing Important Features")
-plt.legend()
-plt.show()
+'''Take a sample from each year'''
+rf_2018 = rf_sample(data_clean_clusters_2018,200000)
+rf_2019 = rf_sample(data_clean_clusters_2019,200000)
+rf_2020 = rf_sample(data_clean_clusters_2020,200000)
+rf_2021 = rf_sample(data_clean_clusters_2021,200000)
+rf_combined = pd.concat([rf_2018,rf_2019,rf_2020,rf_2021])
+
+
 #%%
 '''Define function to run random forest'''
 def run_rf(df):
@@ -334,11 +320,11 @@ def run_rf(df):
     y = df['capacity']
     x_train, x_test, y_train, y_test = train_test_split(x,y)
     model.fit(x_train,y_train)
-    Y_pred = model.predict(x_test)
-    print("Accuracy:{df}",metrics.accuracy_score(y_test, Y_pred))
-    print(metrics.classification_report(y_test,Y_pred))
+    y_pred = model.predict(x_test)
+    print("Accuracy:{df}",metrics.accuracy_score(y_test, y_pred))
+    print(metrics.classification_report(y_test,y_pred))
     #print(metrics.confusion_matrix(y_test, Y_pred))
-    feature_imp = pd.Series(model.feature_importances_,index=['station_id','year','day_num','hour']).sort_values(ascending=False)
+    feature_imp = pd.Series(model.feature_importances_,index=['station_id','pandemic_flag','day_num','hour']).sort_values(ascending=False)
     # Creating a bar plot
     sns.barplot(x=feature_imp, y=feature_imp.index)
     # Add labels to your graph
@@ -347,17 +333,89 @@ def run_rf(df):
     plt.title("Visualizing Important Features")
     plt.legend()
     plt.show()
-
-#%%
-'''Take a sample from each year'''
-rf_2018 = random_forest(data_clean_clusters_2018,200000)
-rf_2019 = random_forest(data_clean_clusters_2019,200000)
-rf_2020 = random_forest(data_clean_clusters_2020,200000)
-rf_2021 = random_forest(data_clean_clusters_2021,200000)
-rf_combined = pd.concat([rf_2018,rf_2019,rf_2020,rf_2021])
 #%%
 '''Run RF on all years combined to show impact of year on capacity'''
 result_combined = run_rf(rf_combined)
+#%%
+from sklearn.tree import DecisionTreeClassifier
+
+def run_dt(df):
+    model = DecisionTreeClassifier()
+    x = df.drop(['proportion_filled','capacity'],axis=1)
+    y = df['capacity']
+    x_train, x_test, y_train, y_test = train_test_split(x,y)
+    model.fit(x_train,y_train)
+    y_pred = model.predict(x_test)
+    print("Accuracy:{df}",metrics.accuracy_score(y_test, y_pred))
+    print(metrics.classification_report(y_test,y_pred))
+    #print(metrics.confusion_matrix(y_test, Y_pred))
+    feature_imp = pd.Series(model.feature_importances_,index=['station_id','pandemic_flag','day_num','hour']).sort_values(ascending=False)
+    # Creating a bar plot
+    sns.barplot(x=feature_imp, y=feature_imp.index)
+    # Add labels to your graph
+    plt.xlabel('Feature Importance Score')
+    plt.ylabel('Features')
+    plt.title("Visualizing Important Features")
+    plt.legend()
+    plt.show()
+    
+tree_combined = run_dt(rf_combined)
+
+
+#%%
+'''This repeats the code above not in function form incase we want to look at x_train data explicitly'''
+model = DecisionTreeClassifier()
+x = rf_combined.drop(['proportion_filled','capacity'],axis=1)
+y = rf_combined['capacity']
+x_train, x_test, y_train, y_test = train_test_split(x,y)
+model.fit(x_train,y_train)
+y_pred = model.predict(x_test)
+print("Accuracy:{rf_combined}",metrics.accuracy_score(y_test, y_pred))
+print(metrics.classification_report(y_test,y_pred))
+#print(metrics.confusion_matrix(y_test, Y_pred))
+feature_imp = pd.Series(model.feature_importances_,index=['station_id','pandemic_flag','day_num','hour']).sort_values(ascending=False)
+# Creating a bar plot
+sns.barplot(x=feature_imp, y=feature_imp.index)
+# Add labels to your graph
+plt.xlabel('Feature Importance Score')
+plt.ylabel('Features')
+plt.title("Visualizing Important Features")
+plt.legend()
+plt.show()
+
+#%%
+
+'''Hyperparameter tuning'''
+from sklearn.model_selection import GridSearchCV
+model = DecisionTreeClassifier()
+print(model.get_params())
+# Define the grid of hyperparameters 'params_dt'
+params_dt = {'max_depth': [30,35,40],
+             'min_samples_leaf': [15,20,30],
+             'max_features': [0.8,0.9,0.95]            }
+# Instantiate a 10-fold CV grid search object 'grid_dt'
+grid_dt = GridSearchCV(estimator=model,                        
+                       param_grid=params_dt,                       
+                       scoring='accuracy',                                              
+                       cv=10,                       
+                       n_jobs=-1)
+# Fit 'grid_dt' to the training datagrid_
+grid_dt.fit(x_train, y_train)
+
+# Extract best hyperparameters from 'grid_dt'
+best_hyperparams = grid_dt.best_params_
+print('Best hyerparameters:\n', best_hyperparams)
+# Extract best CV score from 'grid_dt'
+best_CV_score = grid_dt.best_score_
+print('Best CV accuracy'.format(best_CV_score))
+
+# Extract best model from 'grid_dt'
+best_model = grid_dt.best_estimator_
+# Evaluate test set accuracy
+test_acc = best_model.score(x_test,y_test)
+# Print test set accuracy
+print("Test set accuracy of best model: {:.3f}".format(test_acc))
+
 #%%
 '''Run RF for each year'''
 
@@ -391,3 +449,4 @@ plt.ylim(0,1)
 
 
  
+# %%
