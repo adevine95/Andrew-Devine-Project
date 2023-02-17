@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 import re
 #%% Bring in data
 '''Here I'm bringing in the Dublin bike data stored in CSV files'''
+
 data_2018_q3 = pd.read_csv('dublinbikes_20180701_20181001.csv')
 data_2018_q4 = pd.read_csv('dublinbikes_20181001_20190101.csv')
 data_2018 = pd.concat([data_2018_q3,data_2018_q4],axis=0)
@@ -314,8 +315,9 @@ rf_combined = pd.concat([rf_2018,rf_2019,rf_2020,rf_2021])
 
 #%%
 '''Define function to run random forest'''
+SEED = 1
 def run_rf(df):
-    model = RandomForestClassifier()
+    model = RandomForestClassifier(random_state=SEED)
     x = df.drop(['proportion_filled','capacity'],axis=1)
     y = df['capacity']
     x_train, x_test, y_train, y_test = train_test_split(x,y)
@@ -338,9 +340,9 @@ def run_rf(df):
 result_combined = run_rf(rf_combined)
 #%%
 from sklearn.tree import DecisionTreeClassifier
-
+SEED = 1
 def run_dt(df):
-    model = DecisionTreeClassifier()
+    model = DecisionTreeClassifier(random_state=SEED)
     x = df.drop(['proportion_filled','capacity'],axis=1)
     y = df['capacity']
     x_train, x_test, y_train, y_test = train_test_split(x,y)
@@ -364,7 +366,8 @@ tree_combined = run_dt(rf_combined)
 
 #%%
 '''This repeats the code above not in function form incase we want to look at x_train data explicitly'''
-model = DecisionTreeClassifier()
+SEED = 1
+model = DecisionTreeClassifier(random_state=SEED)
 x = rf_combined.drop(['proportion_filled','capacity'],axis=1)
 y = rf_combined['capacity']
 x_train, x_test, y_train, y_test = train_test_split(x,y)
@@ -387,12 +390,13 @@ plt.show()
 
 '''Hyperparameter tuning'''
 from sklearn.model_selection import GridSearchCV
-model = DecisionTreeClassifier()
+SEED = 1
+model = DecisionTreeClassifier(random_state=SEED)
 print(model.get_params())
 # Define the grid of hyperparameters 'params_dt'
-params_dt = {'max_depth': [30,35,40],
-             'min_samples_leaf': [15,20,30],
-             'max_features': [0.8,0.9,0.95]            }
+params_dt = {'max_depth': [29,30,35,40],
+             'min_samples_leaf': [14,15,20,30],
+             'max_features': [0.7,0.8,0.9,0.95]            }
 # Instantiate a 10-fold CV grid search object 'grid_dt'
 grid_dt = GridSearchCV(estimator=model,                        
                        param_grid=params_dt,                       
@@ -401,28 +405,27 @@ grid_dt = GridSearchCV(estimator=model,
                        n_jobs=-1)
 # Fit 'grid_dt' to the training datagrid_
 grid_dt.fit(x_train, y_train)
-
 # Extract best hyperparameters from 'grid_dt'
 best_hyperparams = grid_dt.best_params_
-print('Best hyerparameters:\n', best_hyperparams)
 # Extract best CV score from 'grid_dt'
 best_CV_score = grid_dt.best_score_
-print('Best CV accuracy'.format(best_CV_score))
-
 # Extract best model from 'grid_dt'
 best_model = grid_dt.best_estimator_
 # Evaluate test set accuracy
 test_acc = best_model.score(x_test,y_test)
 # Print test set accuracy
-print("Test set accuracy of best model: {:.3f}".format(test_acc))
+
+print('Best CV accuracy:\n{}'.format(best_CV_score))
+print('Best hyerparameters:\n', best_hyperparams)
+print("Test set accuracy of best model:\n{:.3f}".format(test_acc))
 
 #%%
 '''Run RF for each year'''
 
-result_2018 = run_rf(rf_2018)
-result_2019 = run_rf(rf_2019)
-result_2020 = run_rf(rf_2020)
-result_2021 = run_rf(rf_2021)
+# result_2018 = run_rf(rf_2018)
+# result_2019 = run_rf(rf_2019)
+# result_2020 = run_rf(rf_2020)
+# result_2021 = run_rf(rf_2021)
 
 #%%
 '''
@@ -432,19 +435,19 @@ n shaped graphs should show destination stations that people arrive at in the mo
 plotting the workday as the hue we should see changes in the stations only used for commuting
 Would like to compare these against the clusters identified through KMeans.
 '''
-palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
-sns.set_style('darkgrid')
-sns.relplot(
-x='hour',
-y='proportion_filled',
-kind = 'line',
-data=data_clean_clusters_2019,
-col='station_id',
-col_wrap=10,
-hue = 'cluster',
-palette = palette
-        )
-plt.ylim(0,1)
+# palette = {0: 'blue', 1: 'red', 2: 'orange', 3: 'green', 4: 'purple'}
+# sns.set_style('darkgrid')
+# sns.relplot(
+# x='hour',
+# y='proportion_filled',
+# kind = 'line',
+# data=data_clean_clusters_2019,
+# col='station_id',
+# col_wrap=10,
+# hue = 'cluster',
+# palette = palette
+#         )
+# plt.ylim(0,1)
 
 
 
